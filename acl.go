@@ -10,7 +10,7 @@ import (
 // for example
 
 type Instance struct {
-	aclMap      map[string]*Branch
+	aclMap      *Branch
 	roles       map[string]*Role
 	permissions map[string]*Permission
 	sync.RWMutex
@@ -18,7 +18,7 @@ type Instance struct {
 
 func NewInstance() *Instance {
 	var i Instance
-	i.aclMap = make(map[string]*Branch)
+	i.aclMap = newBranch("root")
 	i.roles = make(map[string]*Role)
 	i.permissions = make(map[string]*Permission)
 	return &i
@@ -59,16 +59,8 @@ func (acl *Instance) AddBranch(name string) (err error) {
 		return err
 	}
 	currentPos := []string{}
-	var currentPtr *Branch
-	for idx, val := range splitP {
-		if idx == 0 {
-			if _, ok := acl.aclMap[val]; !ok {
-				acl.aclMap[val] = newBranch(val)
-			}
-			currentPtr = acl.aclMap[val]
-			continue
-
-		}
+	var currentPtr = acl.aclMap
+	for _, val := range splitP {
 		currentPos = append(currentPos, val)
 		if _, ok := currentPtr.Branch[val]; !ok {
 			currentPtr.Branch[val] = newBranch(val)
@@ -93,19 +85,24 @@ func (acl *Instance) AddPerm(name string, perm string) (err error) {
 	return err
 }
 
+func (acl *Instance) getBranchPtr(path []string) (branch *Branch, err error) {
+	return branch, fmt.Errorf("No branch with that path [%+v]",path)
+
+}
+
 func (acl *Instance) Role(name string) *Role {
 	return acl.roles[name]
 }
 
 func (acl *Instance) DebugDump() string {
 	out, _ := json.MarshalIndent(struct{
-		Map      map[string]*Branch
+		Map      *Branch
 		Roles       map[string]*Role
 		Permissions map[string]*Permission
 	}{
 		acl.aclMap,
 		acl.roles,
 		acl.permissions,
-	}, "", "    ")
+	}, "", "  ")
 	return string(out)
 }
