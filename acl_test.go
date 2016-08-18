@@ -13,7 +13,7 @@ func TestService(t *testing.T) {
 	err = acl.NewPermission(`write`)
 	acl.AddBranch(`root.admin.some.very.long.nest`)
 	acl.AddBranch(`root.guest`)
-	err = acl.SetPerm(`root.admin`,`guest`,`read`)
+	err = acl.SetPerm(`root.admin.config`,`guest`,`read`)
 	Convey("SettingPermissions",t,func() {
 		So(err,ShouldBeNil)
 	})
@@ -21,8 +21,8 @@ func TestService(t *testing.T) {
 
 //	acl.SetPerm(`root.admin`,`admin`,`read`)
 //	acl.SetPerm(`root.admin`,`gadmin`,`write`)
-	canRead, _ := 	acl.Role("guest").HasPermission("root.admin","read")
-	canAdmin, _ := acl.Role("guest").HasPermission("root.admin","write")
+	canRead, _ := 	acl.Role("guest").HasPermission("root.admin.config","read")
+	canAdmin, _ := acl.Role("guest").HasPermission("root.admin.config","write")
 
 	Convey("Creating acl", t, func() {
 		So(acl, ShouldNotEqual, nil)
@@ -36,6 +36,17 @@ func TestService(t *testing.T) {
 	Convey("DebugDump",t,func() {
 		So(acl.DebugDump(),ShouldNotEqual,nil)
 	})
+
+	canRecursiveRead, _ := acl.Role("guest").HasPermission("root.admin.config.db","read")
+	canRecursiveAdmin, _ := acl.Role("admin").HasPermission("root.admin.config.db.some.thing","read")
+	Convey("Recursively lookup read",t,func() {
+		So(canRecursiveRead,ShouldBeTrue)
+	})
+	Convey("Recursively lookup admin",t,func() {
+		So(canRecursiveAdmin,ShouldBeFalse)
+	})
+
+
 
 
 	_ = err

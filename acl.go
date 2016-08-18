@@ -9,6 +9,8 @@ import (
 // acl-s are multi-part names that use / as divider
 // for example
 
+const MaxPathDepth=64
+
 type Instance struct {
 	aclMap      *Branch
 	roles       map[string]*Role
@@ -56,10 +58,13 @@ func (acl *Instance) NewRole(name string, roltype int) (e error) {
 	return e
 }
 
-func (acl *Instance) AddBranch(name string) (err error) {
-	splitP, err := splitPath(name)
-	if err != nil {
-		return err
+func (acl *Instance) AddBranch(name ...string) (err error) {
+	var splitP  []string
+	if len(name) == 1 {
+		splitP, err = splitPath(name[0])
+		if err != nil { return err }
+	} else {
+		splitP = name
 	}
 	currentPos := []string{}
 	var currentPtr = acl.aclMap
@@ -83,12 +88,11 @@ func (acl *Instance) NewPermission(name string) (err error) {
 	acl.Unlock()
 	return err
 }
-
+// Set permission ,creating branch if neccesary
 func (acl *Instance) SetPerm(name string, role string, perm string) (err error) {
 	path, err := splitPath(name)
 	if err != nil { return err }
-	branch, err := acl.getBranchPtr(path)
-	fmt.Printf("---- %+v \n", branch)
+	branch, err := acl.getOrCreateBranchPtr(path)
 	if err != nil { return err }
 	if _, ok := branch.Perms[role]; !ok {
 		branch.Perms[role] = make(map[string]bool)
@@ -109,6 +113,16 @@ func (acl *Instance) getBranchPtr(path []string) (branch *Branch, err error) {
 	return currentPtr, err
 }
 
+func (acl *Instance) getOrCreateBranchPtr(path []string) (branch *Branch, err error) {
+	branch, err = acl.getBranchPtr(path)
+	if err == nil {
+		return branch, err
+	} else {
+		acl.AddBranch(path...)
+		return acl.getBranchPtr(path)
+	}
+}
+
 func (acl *Instance) Role(name string) (z *Role) {
 	if r, ok := acl.roles[name]; ok {
 		return r
@@ -118,6 +132,44 @@ func (acl *Instance) Role(name string) (z *Role) {
 		}
 	}
 }
+
+// check if permission for role exist on single path on the tree
+func (acl *Instance) hasPermissionExact(role *Role, pathSplit []string, perm string) (ret bool, err error) {
+	if (!role.valid) {return false, fmt.Errorf("No such role")}
+	branch, err := acl.getBranchPtr(pathSplit)
+	if err != nil { return false, err }
+	if _, ok := branch.Perms[role.Name]; ok {
+		if ret, ok := branch.Perms[role.Name][perm]; ok {
+			return ret, err
+		} else {
+			return false, err
+		}
+
+	} else {
+		return false, err
+	}
+}
+
+func (acl *Instance) hasPermission(role *Role, path string, perm string) (ret bool, err error) {
+	pathSplit, err := splitPath(path)
+	if err != nil { return false, err }
+
+	for i := 0; i < MaxPathDepth; i++  {
+		if len(pathSplit) <= 0 {return false, err}
+		ret, err = acl.hasPermissionExact(role, pathSplit, perm)
+		if err == nil {
+			return ret,err
+		} else {
+			pathSplit = pathSplit[:len(pathSplit)-1]
+		}
+	}
+	return false,fmt.Errorf("ERR: nesting too deep, refusing to go more than %d steps down the tree", MaxPathDepth)
+}
+
+
+
+
+
 
 func (acl *Instance) DebugDump() string {
 	out, _ := json.MarshalIndent(struct{
