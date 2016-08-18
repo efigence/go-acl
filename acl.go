@@ -47,8 +47,11 @@ func (acl *Instance) NewRole(name string, roltype int) (e error) {
 	}
 	var r Role
 	acl.Lock()
+	r.Name = name
 	r.Type = roltype
 	r.instance = acl // return ref so we can get to role's ACLs of user got role struct
+	r.valid=true
+	acl.roles[name] = &r
 	acl.Unlock()
 	return e
 }
@@ -81,17 +84,39 @@ func (acl *Instance) NewPermission(name string) (err error) {
 	return err
 }
 
-func (acl *Instance) AddPerm(name string, perm string) (err error) {
+func (acl *Instance) SetPerm(name string, role string, perm string) (err error) {
+	path, err := splitPath(name)
+	if err != nil { return err }
+	branch, err := acl.getBranchPtr(path)
+	fmt.Printf("---- %+v \n", branch)
+	if err != nil { return err }
+	if _, ok := branch.Perms[role]; !ok {
+		branch.Perms[role] = make(map[string]bool)
+	}
+	branch.Perms[role][perm]=true
 	return err
 }
 
 func (acl *Instance) getBranchPtr(path []string) (branch *Branch, err error) {
-	return branch, fmt.Errorf("No branch with that path [%+v]",path)
-
+	currentPtr := acl.aclMap
+	for _, val := range path {
+		if child, ok := currentPtr.Branch[val]; ok {
+			currentPtr = child
+		} else {
+			return branch, fmt.Errorf("No branch with that path [%+v], create it first",path)
+		}
+	}
+	return currentPtr, err
 }
 
-func (acl *Instance) Role(name string) *Role {
-	return acl.roles[name]
+func (acl *Instance) Role(name string) (z *Role) {
+	if r, ok := acl.roles[name]; ok {
+		return r
+	} else {
+		return &Role{
+			valid: false,
+		}
+	}
 }
 
 func (acl *Instance) DebugDump() string {

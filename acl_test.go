@@ -10,11 +10,19 @@ func TestService(t *testing.T) {
 	err := acl.NewRole("guest", RoleUser)
 	err = acl.NewRole("admin", RoleUser)
 	err = acl.NewPermission(`read`)
+	err = acl.NewPermission(`write`)
 	acl.AddBranch(`root.admin.some.very.long.nest`)
 	acl.AddBranch(`root.guest`)
-	acl.AddPerm(`root.admin`,`read`)
-	canRead, _ := 	acl.Role("guest").HasPermission("read")
-	canAdmin, _ := acl.Role("guest").HasPermission("admin")
+	err = acl.SetPerm(`root.admin`,`guest`,`read`)
+	Convey("SettingPermissions",t,func() {
+		So(err,ShouldBeNil)
+	})
+
+
+//	acl.SetPerm(`root.admin`,`admin`,`read`)
+//	acl.SetPerm(`root.admin`,`gadmin`,`write`)
+	canRead, _ := 	acl.Role("guest").HasPermission("root.admin","read")
+	canAdmin, _ := acl.Role("guest").HasPermission("root.admin","write")
 
 	Convey("Creating acl", t, func() {
 		So(acl, ShouldNotEqual, nil)
@@ -26,7 +34,7 @@ func TestService(t *testing.T) {
 		So(canAdmin, ShouldBeFalse)
 	})
 	Convey("DebugDump",t,func() {
-		So(acl.DebugDump(),ShouldEqual,nil)
+		So(acl.DebugDump(),ShouldNotEqual,nil)
 	})
 
 
