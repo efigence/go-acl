@@ -17,7 +17,7 @@ Path consist of UTF8 elements separated with `.` character, up to `MaxPathDeph` 
 
 Just a golang string for now.
 
-#### Action
+#### Action/Permission
 
 Golang string. If the "default" action is needed, the `#` should be used. It is the default if argument is not specified.
 
@@ -36,18 +36,30 @@ ACLs are structured in hierarchical tree wit
 
 To create ACL object:
 
-    ```go
-    acl := NewInstance()
-    acl.newRole("guest",acl.RoleUser)
-    acl.newRole("editor",acl.RoleUser)
-    acl.newRole("admin",acl.RoleUser)
-    acl.SetPerm("blog.post.read", "guest", "use") // allow guest to read posts
-    acl.SetPerm("blog.post", "editor", "use", false) // allow editor to change them
-    acl.SetPerm("blog.post.delete", "editor", "use", false) // but not to remove them
-    acl.SetPerm("blog.post", "admin", "read") // allow all to admin
+```go
+acl := NewInstance()
+acl.newRole("guest",acl.RoleUser)
+acl.newRole("editor",acl.RoleUser)
+acl.newRole("admin",acl.RoleUser)
+acl.SetPerm("blog.post.read", "guest", "use") // allow guest to read posts
+acl.SetPerm("blog.post", "editor", "use", false) // allow editor to change them
+acl.SetPerm("blog.post.delete", "editor", "use", false) // but not to remove them
+acl.SetPerm("blog.post", "admin", "read") // allow all to admin
 
 
-    if acl.Role("guest").HasPermissions("blog.post.read","use") {
+if acl.Role("guest").HasPerm("blog.post.read","use") {
     fmt.Println("I can read stuff")
+}
 
-    ```
+```
+
+Most methods have default arguments, "true"/allow for action and DefaultPerm (or `"#"`) as action. For example
+
+```go
+acl.SetPerm("blog.post",admin,"#",true)
+acl.SetPerm("blog.post",admin,"#")
+acl.SetPerm("blog.post",admin,true)
+acl.SetPerm("blog.post",admin)
+```
+
+are all equivalent

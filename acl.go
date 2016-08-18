@@ -9,7 +9,8 @@ import (
 // acl-s are multi-part names that use / as divider
 // for example
 
-const MaxPathDepth=64
+const MaxPathDepth = 64
+const DefaultPerm = "#"
 
 type Instance struct {
 	aclMap      *Branch
@@ -88,8 +89,40 @@ func (acl *Instance) NewPermission(name string) (err error) {
 	acl.Unlock()
 	return err
 }
-// Set permission ,creating branch if neccesary
-func (acl *Instance) SetPerm(name string, role string, perm string, flag ...bool) (err error) {
+// Set permission ,creating branch if neccesary. Defaults to to allowing access to "default" permission DefaultPerm
+// Optional arguments (in order):
+//
+//  * permission (defaults to %)
+//  * allow/deny (defaults to allow/true)
+//
+//  If there is only one extra parameter, it will guess which one is it based on type
+func (acl *Instance) SetPerm(name string, role string, args ...interface{} ) (err error) {
+	perm := DefaultPerm
+	allow := true
+	switch len(args) {
+	case 0: // use defaults
+	case 1: //check what we got
+		if conv, ok := args[0].(string); ok {
+			perm = conv
+		} else if conv, ok := args[0].(bool); ok {
+			allow = conv
+		} else {
+			return fmt.Errorf("last argument is of wrong type, should be either string for perm or bool for action")
+		}
+	case 2:
+		ok:=false
+		perm, ok = args[0].(string)
+		if !ok {
+			return fmt.Errorf("First of 2 optional arguments should be string")
+		}
+		allow, ok = args[1].(bool)
+		if !ok {
+			return fmt.Errorf("Second of 2 optional arguments should be bool")
+		}
+	default:
+		return fmt.Errorf("Too many arguments")
+	}
+
 	path, err := splitPath(name)
 	if err != nil { return err }
 	branch, err := acl.getOrCreateBranchPtr(path)
@@ -99,13 +132,8 @@ func (acl *Instance) SetPerm(name string, role string, perm string, flag ...bool
 	if _, ok := branch.Perms[role]; !ok {
 		branch.Perms[role] = make(map[string]bool)
 	}
-	if len(flag) == 0 {
-		branch.Perms[role][perm]=true
-	} else if len(flag) == 1 {
-		branch.Perms[role][perm]=flag[0]
-	} else {
-		return fmt.Errorf("SetPerms have only one optional argument")
-	}
+	branch.Perms[role][perm]=allow
+
 	return err
 }
 
