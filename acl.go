@@ -89,15 +89,23 @@ func (acl *Instance) NewPermission(name string) (err error) {
 	return err
 }
 // Set permission ,creating branch if neccesary
-func (acl *Instance) SetPerm(name string, role string, perm string) (err error) {
+func (acl *Instance) SetPerm(name string, role string, perm string, flag ...bool) (err error) {
 	path, err := splitPath(name)
 	if err != nil { return err }
 	branch, err := acl.getOrCreateBranchPtr(path)
 	if err != nil { return err }
+	acl.Lock()
+	defer acl.Unlock()
 	if _, ok := branch.Perms[role]; !ok {
 		branch.Perms[role] = make(map[string]bool)
 	}
-	branch.Perms[role][perm]=true
+	if len(flag) == 0 {
+		branch.Perms[role][perm]=true
+	} else if len(flag) == 1 {
+		branch.Perms[role][perm]=flag[0]
+	} else {
+		return fmt.Errorf("SetPerms have only one optional argument")
+	}
 	return err
 }
 
